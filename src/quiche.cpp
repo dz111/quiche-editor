@@ -8,7 +8,7 @@
 
 volatile sig_atomic_t window_resized = false;
 
-FILE* file = NULL;
+FILE* file = nullptr;
 std::string fileName;
 
 int first_line = 1;
