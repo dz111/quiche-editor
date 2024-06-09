@@ -125,6 +125,20 @@ void regenerate_screen() {
   refresh();
 }
 
+void scroll_file(int lines) {
+  first_line += lines;
+  if (first_line < 1) first_line = 1;
+  // also clamp bottom too
+  display_file();
+}
+
+template<typename... Args>
+void printcl(const char* fmt, Args&&... args) {
+  move(LINES - 1, 0);
+  clrtoeol();
+  printw(fmt, args...);
+}
+
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     fprintf(stderr, "Usage: qe <filename>\n");
@@ -172,27 +186,24 @@ int main(int argc, char* argv[]) {
     }
 
     if (c == KEY_UP) {
-      first_line--;
-      if (first_line < 1) first_line = 1;
-      display_file();
-      move(LINES - 1, 0);
-      clrtoeol();
-      printw("up");
+      scroll_file(-1);
+      printcl("up");
     } else if (c == KEY_DOWN) {
-      first_line++;
+      scroll_file(1);
+      printcl("down");
+    } else if (c == KEY_NPAGE) {
+      scroll_file(4);
       display_file();
-      move(LINES - 1, 0);
-      clrtoeol();
-      printw("down");
+      printcl("pg down");
+    } else if (c == KEY_PPAGE) {
+      scroll_file(-4);
+      printcl("pg down");
+    } else if (c == 'q') {
+      break;
     } else {
-      move(LINES - 1, 0);
-      clrtoeol();
-      printw("%d %c", c, c);
+      printcl("%d %c", c, c);
     }
-
-    if (c == 'q') break;
   }
   endwin();
-  //printf("Last: %d", (unsigned int)a);
   return 0;
 }
