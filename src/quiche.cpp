@@ -5,6 +5,7 @@
 #include <ncurses.h>
 #include <signal.h>
 #include <stdio.h>
+#include <signal.h>
 
 volatile sig_atomic_t window_resized = false;
 
@@ -35,10 +36,10 @@ void display_file() {
   int skipped_lines = 0;
   while (skipped_lines < lines_to_skip) {
     char c = fgetc(file);
-    while (c != '\r' && c != '\n' && c != 0) {
+    while (c != '\r' && c != '\n' && c != -1) {
       c = fgetc(file);
     }
-    if (c == 0) break;
+    if (c == -1) break;
     if (c == '\r') {
       c = fgetc(file);
       if (c != '\n') {
@@ -66,10 +67,13 @@ void display_file() {
     }
     char c = fgetc(file);
     if (x >= cols) {
-      while (c != '\r' && c != '\n' && c != 0) {
+      while (c != '\r' && c != '\n' && c != -1) {
         c = fgetc(file);
       }
-      if (c == 0) break;
+      if (c == -1) {
+        last_line = first_line + y;
+        break;
+      }
       if (c == '\r') {
         c = fgetc(file);
         if (c != '\n') {
@@ -81,20 +85,21 @@ void display_file() {
       attroff(A_REVERSE);
       addch('\n');
     } else {
-      if (c == 0) break;
+      if (c == -1) {
+        last_line = first_line + y;
+        break;
+      }
       addch(c);
     }
     getyx(stdscr, y, x);
   }
 
   // line numbers
-  int line = first_line;
-  for (int y = 1; y < rows; y++) {
+  for (int y = 1, line = first_line; y < rows && line < last_line; y++, line++) {
     move(y, 0);
     attron(COLOR_PAIR(COLOR_PAIR_LINENUM));
     printw("%*d", line_no_length, line);
     attroff(COLOR_PAIR(COLOR_PAIR_LINENUM));
-    line++;
   }
 }
 
@@ -200,6 +205,8 @@ int main(int argc, char* argv[]) {
       printcl("pg down");
     } else if (c == 'q') {
       break;
+    } else if (c == 'b') {
+      raise(SIGTRAP);
     } else {
       printcl("%d %c", c, c);
     }
