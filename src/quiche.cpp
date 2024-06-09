@@ -8,7 +8,7 @@
 
 volatile sig_atomic_t window_resized = false;
 
-FILE* file = nullptr;
+FILE* file = NULL;
 std::string fileName;
 
 int first_line = 1;
@@ -35,9 +35,10 @@ void display_file() {
   int skipped_lines = 0;
   while (skipped_lines < lines_to_skip) {
     char c = fgetc(file);
-    while (c != '\r' && c != '\n') {
+    while (c != '\r' && c != '\n' && c != 0) {
       c = fgetc(file);
     }
+    if (c == 0) break;
     if (c == '\r') {
       c = fgetc(file);
       if (c != '\n') {
@@ -63,11 +64,12 @@ void display_file() {
     if (x < x_offset) {
       move(y, x_offset);
     }
+    char c = fgetc(file);
     if (x >= cols) {
-      char c = fgetc(file);
-      while (c != '\r' && c != '\n') {
+      while (c != '\r' && c != '\n' && c != 0) {
         c = fgetc(file);
       }
+      if (c == 0) break;
       if (c == '\r') {
         c = fgetc(file);
         if (c != '\n') {
@@ -79,7 +81,8 @@ void display_file() {
       attroff(A_REVERSE);
       addch('\n');
     } else {
-      addch(fgetc(file));
+      if (c == 0) break;
+      addch(c);
     }
     getyx(stdscr, y, x);
   }
