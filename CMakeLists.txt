@@ -11,3 +11,6 @@ add_executable(qe ${SOURCE_FILES})
 find_package(Curses REQUIRED)
 include_directories(${CURSES_INCLUDE_DIR})
 target_link_libraries(qe ${CURSES_LIBRARIES})
+
+install(TARGETS qe DESTINATION bin)
+
