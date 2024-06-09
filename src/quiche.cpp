@@ -5,13 +5,11 @@
 
 #include <ncurses.h>
 #include <signal.h>
-
-namespace fs = std::filesystem;
-using namespace std::string_literals;
+#include <stdio.h>
 
 volatile sig_atomic_t window_resized = false;
 
-std::fstream file;
+FILE* file = nullptr;
 std::string fileName;
 
 int first_line = 1;
@@ -31,20 +29,20 @@ void display_file() {
   }
 
   // reset file
-  file.clear();
-  file.seekg(std::ios_base::beg);
+  rewind(file);
 
   // advance to first displayed line
   int lines_to_skip = first_line - 1;
   int skipped_lines = 0;
   while (skipped_lines < lines_to_skip) {
-    char c = file.get();
+    char c = fgetc(file);
     while (c != '\r' && c != '\n') {
-      c = file.get();
+      c = fgetc(file);
     }
     if (c == '\r') {
-      if (file.peek() == '\n') {
-        c = file.get();
+      c = fgetc(file);
+      if (c != '\n') {
+        ungetc(c, file);
       }
     }
     skipped_lines++;
@@ -67,13 +65,14 @@ void display_file() {
       move(y, x_offset);
     }
     if (x >= cols) {
-      char c = file.get();
+      char c = fgetc(file);
       while (c != '\r' && c != '\n') {
-        c = file.get();
+        c = fgetc(file);
       }
       if (c == '\r') {
-        if (file.peek() == '\n') {
-          c = file.get();
+        c = fgetc(file);
+        if (c != '\n') {
+          ungetc(c, file);
         }
       }
       attron(A_REVERSE);
@@ -81,7 +80,7 @@ void display_file() {
       attroff(A_REVERSE);
       addch('\n');
     } else {
-      addch(file.get());
+      addch(fgetc(file));
     }
     getyx(stdscr, y, x);
   }
@@ -126,23 +125,27 @@ void regenerate_screen() {
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
-    printf("Usage: qe <filename>\n");
+    fprintf(stderr, "Usage: qe <filename>\n");
     return -1;
   }
 
-  fs::path filePath = argv[1];
-  if (!fs::exists(filePath)) {
-    printf("File '%s' does not exist.\n", filePath.string().c_str());
+  std::string sFilePath = argv[1];
+  const char* cFilePath = argv[1];
+  file = fopen(cFilePath, "r+");
+  if (!file) {
+    fprintf(stderr, "Could not open file '%s' for editing.\n", cFilePath);
     return -1;
   }
 
-  file = std::fstream(filePath, std::ios::in | std::ios::out);
-  if (!file.is_open()) {
-    printf("Could not open file '%s' for editing.\n", filePath.string().c_str());
-    return -1;
+  {
+    const char* start = cFilePath;
+    const char* end = start;
+    while (*end != 0) end++;  // advance to end of string
+    const char* fstart = end;
+    while (fstart > start && *fstart != '/' && *fstart != '\\') fstart--;
+    if (fstart > start) fstart++;
+    fileName = fstart;
   }
-
-  fileName = filePath.filename();
 
   initscr();  // Start curses
   raw();      // Disable line buffering so we get inputs asap
