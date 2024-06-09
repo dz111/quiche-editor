@@ -123,7 +123,7 @@ void display_file() {
   }
 
   int rows = LINES - 2; // leave room for status bar, command bar
-  int cols = COLS - 1 - line_num_length - 1;  // always sub 1, then make room for line numbers and space
+  int cols = COLS - 1;
   int x_offset = line_num_length + 1;
 
   // clear text canvas
@@ -225,10 +225,6 @@ void scroll_file(int lines) {
 
 void set_cursor() {
   move(cy, cx + line_num_length);
-}
-
-auto get_cursor() -> std::tuple<int, int> {
-  return std::make_tuple<int, int>(cy + 0, cx - line_num_length);
 }
 
 template<typename... Args>
