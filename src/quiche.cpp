@@ -152,7 +152,11 @@ void regenerate_screen() {
   attron(A_REVERSE);
   printw("^X");
   attroff(A_REVERSE);
-  printw(" Exit");
+  printw(" Exit  ");
+  attron(A_REVERSE);
+  printw("^S");
+  attroff(A_REVERSE);
+  printw(" Save  ");
   refresh();
 }
 
@@ -172,6 +176,16 @@ void printcl(const char* fmt, Args&&... args) {
   //move(LINES - 1, 0);
   //clrtoeol();
   //printw(fmt, args...);
+}
+
+void save() {
+  FILE* saveFile = fopen("qsave", "w");
+  for (LineMeta& line_meta : file_lines) {
+    fwrite(line_meta.start, 1, line_meta.size, saveFile);
+    fputc('\n', saveFile);
+  }
+  fclose(saveFile);
+  beep();
 }
 
 int main(int argc, char* argv[]) {
@@ -289,6 +303,8 @@ int main(int argc, char* argv[]) {
       break;
     //} else if (c == CTRL('b')) {
     //  raise(SIGTRAP);
+    } else if (c == CTRL('S')) {
+      save();
     } else if (c == CTRL('z')) {
       endwin();
       raise(SIGSTOP);
