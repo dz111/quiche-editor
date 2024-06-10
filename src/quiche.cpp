@@ -2,13 +2,40 @@
 #include <fstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
+#include <assert.h>
 #include <ncurses.h>
 #include <signal.h>
 #include <stdio.h>
+#include <string.h>
 #include <signal.h>
 
 volatile sig_atomic_t window_resized = false;
+
+struct LineMeta {
+public:
+  char* start;
+  uint64_t size;
+  uint64_t capacity;  // 0 if using original file buffer
+public:
+  bool has_edit_buffer() {
+    return capacity > 0;
+  }
+  void alloc_edit_buffer() {
+    bool delete_old_buffer = (capacity > 0);
+    char* line_data = start;
+    capacity = size * 2;
+    start = new char[capacity];
+    memcpy(start, line_data, size);
+    if (delete_old_buffer) {
+      delete[] line_data;
+    }
+    beep(); // BEL
+  }
+};
+
+std::vector<LineMeta> file_lines;
 
 FILE* file = nullptr;
 std::string fileName;
@@ -18,9 +45,8 @@ char* editBufferEnd = nullptr;
 unsigned int editBufferCapacity = 0;
 
 int first_line = 1;
-int line_num_length = 0;
-int cx = 1;
-int cy = 1;
+int left_margin = 0;
+int cx = 1, cy = 1;
 
 #define COLOR_PAIR_LINENUM 1
 #define COLOR_PINK 101
@@ -48,46 +74,23 @@ char peek() {
 void reset_read() {
   editBufferReadHead = editBuffer;
 }
-
-void resize_array(char** array, char** array_end, unsigned int* array_capacity) {
-}
-
-void array_insert(char* array, char* array_end, unsigned int array_capacity, unsigned int index, char entry) {
-  if ((array_end - array + 1) > array_capacity) {
-    resize_array(&array, &array_end, &array_capacity);
-  }
-  array_end++;
-  char* writeHead = array + index;
-  char c = *writeHead;
-  *writeHead++ = entry;
-  while (writeHead < array_end) {
-    char last_c = *writeHead;
-    *writeHead++ = c;
-    c = last_c;
-  }
-}
-
 void putc(char c, unsigned int line, unsigned int col) {
   // convert 1-indexed to 0-indexed
   line--;
   col--;
-  char* writeHead = editBuffer;
-  unsigned int skipped_lines = 0;
-  while (skipped_lines < line) {
-    char c = *writeHead++;
-    while (c != '\r' && c != '\n' && writeHead < editBufferEnd) {
-      c = *writeHead++;
-    }
-    if (writeHead >= editBufferEnd) break;
-    if (c == '\r') {
-      if (*writeHead == '\n') {
-        ++writeHead;
-      }
-    }
-    skipped_lines++;
+  assert(line < file_lines.size());
+  LineMeta& line_meta = file_lines[line];
+  assert(col < line_meta.size + 1);
+  if (line_meta.size >= line_meta.capacity) {
+    line_meta.alloc_edit_buffer();
   }
-  writeHead += col;
-  array_insert(editBuffer, editBufferEnd, editBufferCapacity, (writeHead - editBuffer), c);
+  char* cp = line_meta.start + col;
+  while (cp < line_meta.start + line_meta.size + 1) {
+    char last_c = *cp;
+    *cp++ = c;
+    c = last_c;
+  }
+  line_meta.size++;
 }
 
 void init_buffer(unsigned int size, unsigned int fileSize) {
@@ -98,87 +101,46 @@ void init_buffer(unsigned int size, unsigned int fileSize) {
 
 void display_file() {
   int last_line = LINES - 3 + first_line;
-  line_num_length = 0;
+  int line_num_length = 0;
   for (int k = last_line - 1; k > 0; k /= 10) {
     line_num_length++;
   }
-
-  reset_read();
-
-  // advance to first displayed line
-  int lines_to_skip = first_line - 1;
-  int skipped_lines = 0;
-  while (skipped_lines < lines_to_skip) {
-    char c = getc();
-    while (c != '\r' && c != '\n' && c != -1) {
-      c = getc();
-    }
-    if (c == -1) break;
-    if (c == '\r') {
-      if (peek() == '\n') {
-        c = getc();
-      }
-    }
-    skipped_lines++;
-  }
-
-  int rows = LINES - 2; // leave room for status bar, command bar
-  int cols = COLS - 1;
-  int x_offset = line_num_length + 1;
+  left_margin = line_num_length + 1;
 
   // clear text canvas
-  for (int y = 1; y < rows; y++) {
+  for (int y = 1; y < LINES - 2; y++) {
     move(y, 0);
     clrtoeol();
   }
 
   // file contents
-  int x = 0;
-  for (int y = 1; y < rows;) {
-    if (x < x_offset) {
-      move(y, x_offset);
-    }
-    char c = getc();
-    if (x >= cols) {
-      while (c != '\r' && c != '\n' && c != -1) {
-        c = getc();
-      }
-      if (c == -1) {
-        last_line = first_line + y;
-        break;
-      }
-      if (c == '\r') {
-        if (peek() == '\n') {
-          c = getc();
-        }
-      }
-      attron(A_REVERSE);
-      mvaddch(y, COLS-2, '$');
-      attroff(A_REVERSE);
-      addch('\n');
-    } else {
-      if (c == -1) {
-        last_line = first_line + y;
-        break;
-      }
-      if (c == '\r') {
-        if (peek() == '\n') {
-          c = getc();
-        }
-        addch('\n');
-      } else {
-        addch(c);
-      }
-    }
-    getyx(stdscr, y, x);
-  }
+  int rows = std::min((uint64_t)LINES - 3, file_lines.size() - first_line + 1);
+  int cols = COLS - left_margin;
 
-  // line numbers
-  for (int y = 1, line = first_line; y < rows && line < last_line; y++, line++) {
-    move(y, 0);
+  for (int i = 0; i < rows; i++) {
+    int line_num = first_line + i;
+
+    move(i + 1, 0);
     attron(COLOR_PAIR(COLOR_PAIR_LINENUM));
-    printw("%*d", line_num_length, line);
+    printw("%*d", line_num_length, line_num);
     attroff(COLOR_PAIR(COLOR_PAIR_LINENUM));
+    addch(' ');
+
+    LineMeta& line_meta = file_lines[line_num - 1];
+    int chars_to_put = line_meta.size;
+    bool char_overflow = false;
+    if (chars_to_put > cols) {
+      chars_to_put = cols - 1;
+      char_overflow = true;
+    }
+    for (int j = 0; j < chars_to_put; j++) {
+      addch(line_meta.start[j]);
+    }
+    if (char_overflow) {
+      attron(A_REVERSE);
+      addch('$');
+      attroff(A_REVERSE);
+    }
   }
 }
 
@@ -224,7 +186,7 @@ void scroll_file(int lines) {
 }
 
 void set_cursor() {
-  move(cy, cx + line_num_length);
+  move(cy + 0, cx + left_margin - 1);
 }
 
 template<typename... Args>
@@ -267,6 +229,28 @@ int main(int argc, char* argv[]) {
   }
   init_buffer(buffer_size, fileSize);
   fread(editBuffer, 1, fileSize, file);
+
+  // initialise line data
+  reset_read();
+  while (1) {
+    LineMeta line = {0};
+    line.start = editBufferReadHead;
+
+    char c = getc();
+    while (c != '\r' && c != '\n' && c != -1) {
+      line.size++;
+      c = getc();
+    }
+    if (c == -1) break;
+    if (c == '\r') {
+      if (peek() == '\n') {
+        c = getc();
+      }
+    }
+
+    file_lines.push_back(line);
+  }
+  reset_read();
 
   // get filename
   {
