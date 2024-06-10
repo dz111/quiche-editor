@@ -39,10 +39,7 @@ std::vector<LineMeta> file_lines;
 
 FILE* file = nullptr;
 std::string fileName;
-char* editBuffer = nullptr;
-char* editBufferReadHead = nullptr;
-char* editBufferEnd = nullptr;
-unsigned int editBufferCapacity = 0;
+char* fileBuffer = nullptr;
 
 int first_line = 1;
 int left_margin = 0;
@@ -61,19 +58,6 @@ void handle_sigcont(int signal) {
   window_resized = true;
 }
 
-char getc() {
-  if (editBufferReadHead < editBufferEnd - 1) return *editBufferReadHead++;
-  else return -1;
-}
-
-char peek() {
-  if (editBufferReadHead < editBufferEnd - 1) return *editBufferReadHead;
-  else return -1;
-}
-
-void reset_read() {
-  editBufferReadHead = editBuffer;
-}
 void putc(char c, unsigned int line, unsigned int col) {
   // convert 1-indexed to 0-indexed
   line--;
@@ -91,12 +75,6 @@ void putc(char c, unsigned int line, unsigned int col) {
     c = last_c;
   }
   line_meta.size++;
-}
-
-void init_buffer(unsigned int size, unsigned int fileSize) {
-  editBuffer = new char[size];
-  editBufferReadHead = editBuffer;
-  editBufferEnd = editBuffer + fileSize;
 }
 
 void display_file() {
@@ -219,38 +197,30 @@ int main(int argc, char* argv[]) {
   }
   fseek(file, 0, SEEK_SET);  // beginning
 
-  unsigned int buffer_size = 8196;  // start with 8K
-  while (buffer_size < fileSize) {
-    if (buffer_size > 1048576) {  // lets limit ourselves to 1 MB for now...
-      fprintf(stderr, "File exceeds 1 MB.\n");
-      return -1;
-    }
-    buffer_size *= 2;
-  }
-  init_buffer(buffer_size, fileSize);
-  fread(editBuffer, 1, fileSize, file);
+  fileBuffer = new char[fileSize];
+  fread(fileBuffer, 1, fileSize, file);
 
   // initialise line data
-  reset_read();
+  char* cp = fileBuffer;
+  char* fileBufferEnd = fileBuffer + fileSize;
   while (1) {
     LineMeta line = {0};
-    line.start = editBufferReadHead;
+    line.start = cp;
 
-    char c = getc();
-    while (c != '\r' && c != '\n' && c != -1) {
+    char c = *cp++;
+    while (c != '\r' && c != '\n' && cp < fileBufferEnd) {
       line.size++;
-      c = getc();
+      c = *cp++;
     }
-    if (c == -1) break;
+    if (cp >= fileBufferEnd) break;
     if (c == '\r') {
-      if (peek() == '\n') {
-        c = getc();
+      if (*cp == '\n') {
+        c = *cp++;
       }
     }
 
     file_lines.push_back(line);
   }
-  reset_read();
 
   // get filename
   {
