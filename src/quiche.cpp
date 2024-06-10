@@ -164,7 +164,7 @@ void scroll_file(int lines) {
 }
 
 void set_cursor() {
-  move(cy + 0, cx + left_margin - 1);
+  move(cy + 0 - first_line + 1, cx + left_margin - 1);
 }
 
 template<typename... Args>
@@ -278,10 +278,12 @@ int main(int argc, char* argv[]) {
       printcl("right");
     } else if (c == KEY_NPAGE) {
       scroll_file(4);
+      cy += 4;
       display_file();
       printcl("pg down");
     } else if (c == KEY_PPAGE) {
       scroll_file(-4);
+      cy -= 4;
       printcl("pg up");
     } else if (c == CTRL('x')) {
       break;
