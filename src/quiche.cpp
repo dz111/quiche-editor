@@ -389,11 +389,19 @@ int main(int argc, char* argv[]) {
       cy++;
       if (cx > file_lines[cy].size) cx = file_lines[cy].size;
     } else if (c == KEY_LEFT) {
-      cx--;
-      if (cx < 0) cx = 0;
+      if (cx > 0) {
+        cx--;
+      } else if (cy > 0) {
+        cy--;
+        cx = file_lines[cy].size;
+      }
     } else if (c == KEY_RIGHT) {
-      cx++;
-      if (cx > file_lines[cy].size) cx = file_lines[cy].size;
+      if (cx < file_lines[cy].size) {
+        cx++;
+      } else if (cy < file_lines.size() - 1) {
+        cy++;
+        cx = 0;
+      }
     } else if (c == KEY_HOME) {
       cx = 0;
     } else if (c == KEY_END) {
