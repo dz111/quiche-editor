@@ -391,6 +391,7 @@ int main(int argc, char* argv[]) {
   nonl();     // No new lines
   noecho();   // No echo
   keypad(stdscr, TRUE);   // Get special keys too (Fn, arrows, etc.)
+  mousemask(ALL_MOUSE_EVENTS, nullptr);
 
   start_color();
   init_color(COLOR_PINK, 976, 375, 554);
@@ -480,6 +481,11 @@ int main(int argc, char* argv[]) {
         removec(cy, cx);
       } else if (cy < file_lines.size() - 1) {
         printcl(1, "combine lines");
+      }
+    } else if (c == KEY_MOUSE) {
+      MEVENT event;
+      if (getmouse(&event) == OK) {
+        printcl(1, "mouse: x=%d y=%d z=%d", event.x, event.y, event.z);
       }
     }
     update_screen();
