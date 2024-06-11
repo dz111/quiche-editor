@@ -45,7 +45,7 @@ bool dirty = false;
 
 int first_line = 1;
 int left_margin = 0;
-int cx = 1, cy = 1;
+int cx = 0, cy = 0;
 
 time_t cl_message_time = 0;
 std::string cl_message;
@@ -68,9 +68,6 @@ void handle_sigcont(int signal) {
 }
 
 void putc(char c, unsigned int line, unsigned int col) {
-  // convert 1-indexed to 0-indexed
-  line--;
-  col--;
   assert(line < file_lines.size());
   LineMeta& line_meta = file_lines[line];
   assert(col < line_meta.size + 1);
@@ -135,7 +132,7 @@ void render_status() {
   move(LINES - 2, 0);
   attron(A_REVERSE);
   printw(filePath.c_str());
-  printw(" (%d:%d)", cy, cx);
+  printw(" (%d:%d)", cy + 1, cx + 1);
   int x, y;
   getyx(stdscr, y, x);
   for (; x < COLS; x++) {
@@ -181,7 +178,7 @@ void scroll_file(int lines) {
 }
 
 void set_cursor() {
-  move(cy + 0 - first_line, cx + left_margin - 1);
+  move(cy + 1 - first_line, cx + 1 + left_margin - 1);
 }
 
 void save(const std::string& savePath) {
@@ -380,15 +377,22 @@ int main(int argc, char* argv[]) {
     } else if (c == KEY_UP) {
       //scroll_file(-1);
       cy--;
-      if (cy < 1) cy = 1;
+      if (cy < 0) cy = 0;
+      if (cx > file_lines[cy].size) cx = file_lines[cy].size;
     } else if (c == KEY_DOWN) {
       //scroll_file(1);
       cy++;
+      if (cx > file_lines[cy].size) cx = file_lines[cy].size;
     } else if (c == KEY_LEFT) {
       cx--;
-      if (cx < 1) cx = 1;
+      if (cx < 0) cx = 0;
     } else if (c == KEY_RIGHT) {
       cx++;
+      if (cx > file_lines[cy].size) cx = file_lines[cy].size;
+    } else if (c == KEY_HOME) {
+      cx = 0;
+    } else if (c == KEY_END) {
+      cx = file_lines[cy].size;
     } else if (c == KEY_NPAGE) {
       scroll_file(4);
       cy += 4;
