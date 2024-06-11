@@ -411,6 +411,10 @@ int main(int argc, char* argv[]) {
     } else if (c == KEY_RESIZE) {
       printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
       regenerate_screen();
+    } else if (c == KEY_F(12)) {
+      endwin();
+      raise(SIGSTOP);
+      regenerate_screen();
     }
     update_screen();
     set_cursor();
