@@ -39,8 +39,9 @@ public:
 std::vector<LineMeta> file_lines;
 
 FILE* file = nullptr;
-std::string fileName;
+std::string filePath;
 char* fileBuffer = nullptr;
+bool dirty = false;
 
 int first_line = 1;
 int left_margin = 0;
@@ -133,7 +134,7 @@ void display_file() {
 void render_status() {
   move(LINES - 2, 0);
   attron(A_REVERSE);
-  printw(fileName.c_str());
+  printw(filePath.c_str());
   printw(" (%d:%d)", cy, cx);
   int x, y;
   getyx(stdscr, y, x);
@@ -184,7 +185,7 @@ void set_cursor() {
 }
 
 void save(const std::string& savePath) {
-  FILE* saveFile = fopen((savePath + ".q").c_str(), "w");
+  FILE* saveFile = fopen(savePath.c_str(), "w");
   for (LineMeta& line_meta : file_lines) {
     fwrite(line_meta.start, 1, line_meta.size, saveFile);
     fputc('\n', saveFile);
@@ -253,6 +254,26 @@ bool savedialog(std::string& savePath) {
   }
 }
 
+bool exitdialog() {
+  while (1) {
+    move(LINES - 1, 0);
+    clrtoeol();
+    printw("Save before exit? (y/n/esc) ");
+
+    int c = wgetch(stdscr);
+    if (c == 27) {
+      return false;
+    } else if (c == 'n') {
+      return true;
+    } else if (c == 'y') {
+      if (savedialog(filePath)) {
+        save(filePath);
+        return true;
+      }
+    }
+  }
+}
+
 template<typename... Args>
 void strprintf(std::string& s, const char* fmt, Args&&... args) {
   int string_size = snprintf(nullptr, 0, fmt, args...);
@@ -273,7 +294,7 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-  std::string sFilePath = argv[1];
+  filePath = argv[1];
   const char* cFilePath = argv[1];
   file = fopen(cFilePath, "r+");
   if (!file) {
@@ -316,15 +337,15 @@ int main(int argc, char* argv[]) {
   }
 
   // get filename
-  {
-    const char* start = cFilePath;
-    const char* end = start;
-    while (*end != 0) end++;  // advance to end of string
-    const char* fstart = end;
-    while (fstart > start && *fstart != '/' && *fstart != '\\') fstart--;
-    if (fstart > start) fstart++;
-    fileName = fstart;
-  }
+  //{
+  //  const char* start = cFilePath;
+  //  const char* end = start;
+  //  while (*end != 0) end++;  // advance to end of string
+  //  const char* fstart = end;
+  //  while (fstart > start && *fstart != '/' && *fstart != '\\') fstart--;
+  //  if (fstart > start) fstart++;
+  //  fileName = fstart;
+  //}
 
   initscr();  // Start curses
   raw();      // Disable line buffering so we get inputs asap
@@ -355,6 +376,7 @@ int main(int argc, char* argv[]) {
     if (c >= ' ' && c <= '~') {  // all printable chars
       putc(c, cy, cx);
       cx++;
+      dirty = true;
     } else if (c == KEY_UP) {
       //scroll_file(-1);
       cy--;
@@ -374,11 +396,13 @@ int main(int argc, char* argv[]) {
       scroll_file(-4);
       cy -= 4;
     } else if (c == CTRL('q')) {
-      endwin();
-      return 0;
+      if (!dirty || exitdialog()) {
+        endwin();
+        return 0;
+      }
     } else if (c == CTRL('S')) {
-      if (savedialog(sFilePath)) {
-        save(sFilePath);
+      if (savedialog(filePath)) {
+        save(filePath);
       }
     } else if (c == KEY_RESIZE) {
       printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
