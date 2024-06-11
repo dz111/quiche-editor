@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <time.h>
 
 volatile sig_atomic_t window_resized = false;
 
@@ -45,8 +46,15 @@ int first_line = 1;
 int left_margin = 0;
 int cx = 1, cy = 1;
 
-#define COLOR_PAIR_LINENUM 1
-#define COLOR_PINK 101
+time_t cl_message_time = 0;
+std::string cl_message;
+int cl_message_level = 0;
+
+enum {
+  COLOR_PAIR_LINENUM = 1,
+  COLOR_PAIR_ERROR,
+  COLOR_PINK = 101,
+};
 
 #define CTRL(x) ((x) & 0x1f)
 
@@ -86,19 +94,19 @@ void display_file() {
   left_margin = line_num_length + 1;
 
   // clear text canvas
-  for (int y = 1; y < LINES - 2; y++) {
+  for (int y = 0; y < LINES - 1; y++) {
     move(y, 0);
     clrtoeol();
   }
 
   // file contents
-  int rows = std::min((uint64_t)LINES - 3, file_lines.size() - first_line + 1);
+  int rows = std::min((uint64_t)LINES - 2, file_lines.size() - first_line + 1);
   int cols = COLS - left_margin;
 
   for (int i = 0; i < rows; i++) {
     int line_num = first_line + i;
 
-    move(i + 1, 0);
+    move(i, 0);
     attron(COLOR_PAIR(COLOR_PAIR_LINENUM));
     printw("%*d", line_num_length, line_num);
     attroff(COLOR_PAIR(COLOR_PAIR_LINENUM));
@@ -122,70 +130,141 @@ void display_file() {
   }
 }
 
-void regenerate_screen() {
-  window_resized = false;
-  endwin();
-
-  // Title
-  int col = (COLS - fileName.size()) / 2;
-
+void render_status() {
+  move(LINES - 2, 0);
   attron(A_REVERSE);
-  move(0, 0);
+  printw(fileName.c_str());
+  printw(" (%d:%d)", cy, cx);
   int x, y;
-  for (x = 0; x < col; x++) {
-    addch(' ');
-  }
-  mvprintw(0, col, fileName.c_str());
   getyx(stdscr, y, x);
   for (; x < COLS; x++) {
     addch(' ');
   }
   attroff(A_REVERSE);
+}
 
+void render_cl() {
+  assert(cl_message_level >= 0 && cl_message_level <= 1);
+
+  move(LINES - 1, 0);
+  clrtoeol();
+  time_t now = time(nullptr);
+  if (difftime(now, cl_message_time) > 5.0) {
+    return;
+  }
+  if (cl_message_level == 1) {
+    attron(COLOR_PAIR(COLOR_PAIR_ERROR));
+  }
+  printw(cl_message.c_str());
+  attroff(COLOR_PAIR(COLOR_PAIR_ERROR));
+}
+
+void update_screen() {
   display_file();
-
-  move(LINES - 2, 0);
-  clrtoeol();
-  mvprintw(LINES - 2, COLS / 2 - 10, "[ Cols: %d Rows: %d ]\n", COLS, LINES);
-  clrtoeol();
-  printw("  ");
-  attron(A_REVERSE);
-  printw("^X");
-  attroff(A_REVERSE);
-  printw(" Exit  ");
-  attron(A_REVERSE);
-  printw("^S");
-  attroff(A_REVERSE);
-  printw(" Save  ");
+  render_status();
+  render_cl();
   refresh();
+}
+
+void regenerate_screen() {
+  window_resized = false;
+  endwin();
+
+  update_screen();
 }
 
 void scroll_file(int lines) {
   first_line += lines;
   if (first_line < 1) first_line = 1;
   // also clamp bottom too
-  display_file();
 }
 
 void set_cursor() {
-  move(cy + 0 - first_line + 1, cx + left_margin - 1);
+  move(cy + 0 - first_line, cx + left_margin - 1);
 }
 
-template<typename... Args>
-void printcl(const char* fmt, Args&&... args) {
-  //move(LINES - 1, 0);
-  //clrtoeol();
-  //printw(fmt, args...);
-}
-
-void save() {
-  FILE* saveFile = fopen("qsave", "w");
+void save(const std::string& savePath) {
+  FILE* saveFile = fopen((savePath + ".q").c_str(), "w");
   for (LineMeta& line_meta : file_lines) {
     fwrite(line_meta.start, 1, line_meta.size, saveFile);
     fputc('\n', saveFile);
   }
   fclose(saveFile);
   beep();
+}
+
+void dialog_render(const std::string& prompt, const std::string& entry, const int cursor) {
+  assert(cursor >= 0);
+  assert(cursor <= entry.size());
+  move(LINES - 1, 0);
+  clrtoeol();
+  printw(prompt.c_str());
+  printw(entry.c_str());
+  move(LINES - 1, prompt.size() + cursor);
+}
+
+void dialog_keyinput(std::string& entry, int c, int& cursor) {
+  if (c >= ' ' && c <= '~') {
+    entry.insert(cursor, 1, (char)c);
+    cursor++;
+  } else if (c == KEY_LEFT) {
+    cursor--;
+    if (cursor < 0) cursor = 0;
+  } else if (c == KEY_RIGHT) {
+    cursor++;
+    if (cursor > entry.size()) cursor = entry.size();
+  } else if (c == KEY_BACKSPACE) {
+    if (cursor == 0) return;
+    entry.erase(cursor - 1, 1);
+    cursor--;
+  } else if (c == KEY_DC) {
+    if (cursor == entry.size()) return;
+    entry.erase(cursor, 1);
+  } else if (c == KEY_HOME) {
+    cursor = 0;
+  } else if (c == KEY_END) {
+    cursor = entry.size();
+  }
+}
+
+void dialog_clear() {
+  move(LINES - 1, 0);
+  clrtoeol();
+}
+
+bool savedialog(std::string& savePath) {
+  std::string newSavePath = savePath;
+  int cx = savePath.size();
+
+  while (1) {
+    dialog_render("Filename: ", newSavePath, cx);
+    int c = wgetch(stdscr);
+
+    if (c == 27) {
+      dialog_clear();
+      return false;
+    } else if (c == '\r' || c == '\n' || c == KEY_ENTER) {
+      savePath = newSavePath;
+      dialog_clear();
+      return true;
+    } else {
+      dialog_keyinput(newSavePath, c, cx);
+    }
+  }
+}
+
+template<typename... Args>
+void strprintf(std::string& s, const char* fmt, Args&&... args) {
+  int string_size = snprintf(nullptr, 0, fmt, args...);
+  s.reserve(string_size + 1);
+  snprintf(&s[0], string_size + 1, fmt, args...);
+}
+
+template<typename... Args>
+void printcl(int level, const char* fmt, Args&&... args) {
+  cl_message_time = time(nullptr);
+  cl_message_level = 0;
+  strprintf(cl_message, fmt, args...);
 }
 
 int main(int argc, char* argv[]) {
@@ -256,6 +335,7 @@ int main(int argc, char* argv[]) {
   start_color();
   init_color(COLOR_PINK, 976, 375, 554);
   init_pair(COLOR_PAIR_LINENUM, COLOR_PINK, COLOR_BLACK);
+  init_pair(COLOR_PAIR_ERROR, COLOR_BLACK, COLOR_RED);
 
   regenerate_screen();
   set_cursor();
@@ -273,48 +353,38 @@ int main(int argc, char* argv[]) {
     }
 
     if (c == KEY_RESIZE) {
+      printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
       regenerate_screen();
     } else if (c == KEY_UP) {
       //scroll_file(-1);
       cy--;
       if (cy < 1) cy = 1;
-      printcl("up");
     } else if (c == KEY_DOWN) {
       //scroll_file(1);
       cy++;
-      printcl("down");
     } else if (c == KEY_LEFT) {
       cx--;
       if (cx < 1) cx = 1;
-      printcl("left");
     } else if (c == KEY_RIGHT) {
       cx++;
-      printcl("right");
     } else if (c == KEY_NPAGE) {
       scroll_file(4);
       cy += 4;
-      display_file();
-      printcl("pg down");
     } else if (c == KEY_PPAGE) {
       scroll_file(-4);
       cy -= 4;
-      printcl("pg up");
-    } else if (c == CTRL('x')) {
-      break;
-    //} else if (c == CTRL('b')) {
-    //  raise(SIGTRAP);
-    } else if (c == CTRL('S')) {
-      save();
-    } else if (c == CTRL('z')) {
+    } else if (c == CTRL('q')) {
       endwin();
-      raise(SIGSTOP);
+      return 0;
+    } else if (c == CTRL('S')) {
+      if (savedialog(sFilePath)) {
+        save(sFilePath);
+      }
     } else if (c >= ' ' && c <= '~') {  // all printable chars
       putc(c, cy, cx);
       cx++;
-      display_file();
     }
+    update_screen();
     set_cursor();
   }
-  endwin();
-  return 0;
 }
