@@ -352,9 +352,9 @@ int main(int argc, char* argv[]) {
       regenerate_screen();
     }
 
-    if (c == KEY_RESIZE) {
-      printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
-      regenerate_screen();
+    if (c >= ' ' && c <= '~') {  // all printable chars
+      putc(c, cy, cx);
+      cx++;
     } else if (c == KEY_UP) {
       //scroll_file(-1);
       cy--;
@@ -380,9 +380,9 @@ int main(int argc, char* argv[]) {
       if (savedialog(sFilePath)) {
         save(sFilePath);
       }
-    } else if (c >= ' ' && c <= '~') {  // all printable chars
-      putc(c, cy, cx);
-      cx++;
+    } else if (c == KEY_RESIZE) {
+      printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
+      regenerate_screen();
     }
     update_screen();
     set_cursor();
