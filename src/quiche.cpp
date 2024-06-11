@@ -53,8 +53,11 @@ int cl_message_level = 0;
 
 enum {
   COLOR_PAIR_LINENUM = 1,
+  COLOR_PAIR_LINENUM_SHADED,
+  COLOR_PAIR_LINE_SHADED,
   COLOR_PAIR_ERROR,
   COLOR_PINK = 101,
+  COLOR_LINE_SHADE,
 };
 
 #define CTRL(x) ((x) & 0x1f)
@@ -119,28 +122,45 @@ void display_file() {
   int cols = COLS - left_margin;
 
   for (int i = 0; i < rows; i++) {
-    int line_num = first_line + i;
+    int line_num = first_line + i - 1;
 
     move(i, 0);
-    attron(COLOR_PAIR(COLOR_PAIR_LINENUM));
-    printw("%*d", line_num_length, line_num);
-    attroff(COLOR_PAIR(COLOR_PAIR_LINENUM));
+    int color_pair = COLOR_PAIR_LINENUM;
+    if (line_num == cy) {
+      color_pair = COLOR_PAIR_LINENUM_SHADED;
+    }
+    attron(COLOR_PAIR(color_pair));
+    printw("%*d", line_num_length, line_num + 1);
     addch(' ');
+    attroff(COLOR_PAIR(color_pair));
 
-    LineMeta& line_meta = file_lines[line_num - 1];
+    LineMeta& line_meta = file_lines[line_num];
     int chars_to_put = line_meta.size;
     bool char_overflow = false;
     if (chars_to_put > cols) {
       chars_to_put = cols - 1;
       char_overflow = true;
     }
+    if (line_num == cy) {
+      attron(COLOR_PAIR(COLOR_PAIR_LINE_SHADED));
+    }
     for (int j = 0; j < chars_to_put; j++) {
       addch(line_meta.start[j]);
     }
+
     if (char_overflow) {
       attron(A_REVERSE);
       addch('$');
       attroff(A_REVERSE);
+    }
+
+    if (line_num == cy) {
+      int x, y;
+      getyx(stdscr, y, x);
+      for (; x < COLS; x++) {
+        addch(' ');
+      }
+      attroff(COLOR_PAIR(COLOR_PAIR_LINE_SHADED));
     }
   }
 }
@@ -374,7 +394,10 @@ int main(int argc, char* argv[]) {
 
   start_color();
   init_color(COLOR_PINK, 976, 375, 554);
+  init_color(COLOR_LINE_SHADE, 250, 250, 250);
   init_pair(COLOR_PAIR_LINENUM, COLOR_PINK, COLOR_BLACK);
+  init_pair(COLOR_PAIR_LINENUM_SHADED, COLOR_PINK, COLOR_LINE_SHADE);
+  init_pair(COLOR_PAIR_LINE_SHADED, COLOR_WHITE, COLOR_LINE_SHADE);
   init_pair(COLOR_PAIR_ERROR, COLOR_BLACK, COLOR_RED);
 
   regenerate_screen();
