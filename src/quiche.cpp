@@ -81,6 +81,23 @@ void putc(char c, unsigned int line, unsigned int col) {
     c = last_c;
   }
   line_meta.size++;
+  dirty = true;
+}
+
+void removec(unsigned int line, unsigned int col) {
+  assert(line < file_lines.size());
+  LineMeta& line_meta = file_lines[line];
+  assert(col < line_meta.size);
+  if (line_meta.size >= line_meta.capacity) {
+    line_meta.alloc_edit_buffer();
+  }
+  char* cp = line_meta.start + col;
+  while (cp < line_meta.start + line_meta.size) {
+    *cp = *(cp + 1);
+    cp++;
+  }
+  line_meta.size--;
+  dirty = true;
 }
 
 void display_file() {
@@ -378,7 +395,6 @@ int main(int argc, char* argv[]) {
     if (c >= ' ' && c <= '~') {  // all printable chars
       putc(c, cy, cx);
       cx++;
-      dirty = true;
     } else if (c == KEY_UP) {
       //scroll_file(-1);
       cy--;
@@ -428,6 +444,19 @@ int main(int argc, char* argv[]) {
       endwin();
       raise(SIGSTOP);
       regenerate_screen();
+        } else if (c == KEY_BACKSPACE) {
+      if (cx > 0) {
+        removec(cy, cx - 1);
+        cx--;
+      } else if (cy > 0) {
+        printcl(1, "combine lines");
+      }
+    } else if (c = KEY_DC) {
+      if (cx < file_lines[cy].size) {
+        removec(cy, cx);
+      } else if (cy < file_lines.size() - 1) {
+        printcl(1, "combine lines");
+      }
     }
     update_screen();
     set_cursor();
