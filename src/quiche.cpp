@@ -475,7 +475,7 @@ int main(int argc, char* argv[]) {
       } else if (cy > 0) {
         printcl(1, "combine lines");
       }
-    } else if (c = KEY_DC) {
+    } else if (c == KEY_DC) {
       if (cx < file_lines[cy].size) {
         removec(cy, cx);
       } else if (cy < file_lines.size() - 1) {
