@@ -43,7 +43,7 @@ std::string filePath;
 char* fileBuffer = nullptr;
 bool dirty = false;
 
-int first_line = 1;
+int first_line = 0;
 int left_margin = 0;
 int cx = 0, cy = 0;
 
@@ -104,7 +104,7 @@ void removec(unsigned int line, unsigned int col) {
 }
 
 void display_file() {
-  int last_line = LINES - 3 + first_line;
+  int last_line = LINES - 2 + first_line;
   int line_num_length = 0;
   for (int k = last_line - 1; k > 0; k /= 10) {
     line_num_length++;
@@ -118,11 +118,11 @@ void display_file() {
   }
 
   // file contents
-  int rows = std::min((uint64_t)LINES - 2, file_lines.size() - first_line + 1);
+  int rows = std::min((uint64_t)LINES - 2, file_lines.size() - first_line);
   int cols = COLS - left_margin;
 
   for (int i = 0; i < rows; i++) {
-    int line_num = first_line + i - 1;
+    int line_num = first_line + i;
 
     move(i, 0);
     int color_pair = COLOR_PAIR_LINENUM;
@@ -214,12 +214,12 @@ void regenerate_screen() {
 
 void scroll_file(int lines) {
   first_line += lines;
-  if (first_line < 1) first_line = 1;
+  if (first_line < 0) first_line = 0;
   // also clamp bottom too
 }
 
 void set_cursor() {
-  move(cy + 1 - first_line, cx + 1 + left_margin - 1);
+  move(cy - first_line, cx + left_margin);
 }
 
 void save(const std::string& savePath) {
