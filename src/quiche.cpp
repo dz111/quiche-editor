@@ -403,6 +403,7 @@ int main(int argc, char* argv[]) {
     } else if (c == KEY_DOWN) {
       //scroll_file(1);
       cy++;
+      if (cy >= file_lines.size()) cy = file_lines.size() - 1;
       if (cx > file_lines[cy].size) cx = file_lines[cy].size;
     } else if (c == KEY_LEFT) {
       if (cx > 0) {
