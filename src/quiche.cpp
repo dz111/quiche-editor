@@ -132,7 +132,11 @@ void render_status() {
   move(LINES - 2, 0);
   attron(A_REVERSE);
   printw(filePath.c_str());
+  if (dirty) {
+    addch('*');
+  }
   printw(" (%d:%d)", cy + 1, cx + 1);
+
   int x, y;
   getyx(stdscr, y, x);
   for (; x < COLS; x++) {
@@ -188,6 +192,7 @@ void save(const std::string& savePath) {
     fputc('\n', saveFile);
   }
   fclose(saveFile);
+  dirty = false;
   beep();
 }
 
