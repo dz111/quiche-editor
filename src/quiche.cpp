@@ -24,7 +24,7 @@ public:
     return capacity > 0;
   }
   void alloc_edit_buffer() {
-    bool delete_old_buffer = (capacity > 0);
+    bool delete_old_buffer = (capacity > 0);  // need to be careful not to delete some one else's memory
     char* line_data = start;
     capacity = size * 2;
     start = new char[capacity];
@@ -73,7 +73,7 @@ void handle_sigcont(int signal) {
 void putc(char c, unsigned int line, unsigned int col) {
   assert(line < file_lines.size());
   LineMeta& line_meta = file_lines[line];
-  assert(col < line_meta.size + 1);
+  assert(col <= line_meta.size);
   if (line_meta.size >= line_meta.capacity) {
     line_meta.alloc_edit_buffer();
   }
@@ -101,6 +101,24 @@ void removec(unsigned int line, unsigned int col) {
   }
   line_meta.size--;
   dirty = true;
+}
+
+void putnl(unsigned int line, unsigned int col) {
+  assert(line < file_lines.size());
+  LineMeta& first_line = file_lines[line];
+  assert(col <= first_line.size);
+
+  LineMeta second_line = {0};
+  second_line.start = first_line.start + col;
+  second_line.size = first_line.size - col;
+  if (second_line.size >= second_line.capacity) {
+    second_line.alloc_edit_buffer();
+  }
+
+  first_line.size = col;
+
+  auto iter = file_lines.begin() + line + 1;
+  file_lines.insert(iter, second_line);
 }
 
 void display_file() {
@@ -490,6 +508,10 @@ int main(int argc, char* argv[]) {
       } else if (cy < file_lines.size() - 1) {
         printcl(1, "combine lines");
       }
+    } else if (c == '\r' || c == '\n' || c == KEY_ENTER) {
+      putnl(cy, cx);
+      cy++;
+      cx = 0;
     } else if (c == KEY_MOUSE) {
       MEVENT event;
       if (getmouse(&event) == OK) {
