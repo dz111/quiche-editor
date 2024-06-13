@@ -390,6 +390,7 @@ int main(int argc, char* argv[]) {
   raw();      // Disable line buffering so we get inputs asap
   nonl();     // No new lines
   noecho();   // No echo
+  set_escdelay(0);
   keypad(stdscr, TRUE);   // Get special keys too (Fn, arrows, etc.)
   mousemask(ALL_MOUSE_EVENTS, nullptr);
 
