@@ -361,11 +361,10 @@ int main(int argc, char* argv[]) {
     line.start = cp;
 
     char c = *cp++;
-    while (c != '\r' && c != '\n' && cp < fileBufferEnd) {
+    while (c != '\r' && c != '\n' && cp <= fileBufferEnd) {
       line.size++;
       c = *cp++;
     }
-    if (cp >= fileBufferEnd) break;
     if (c == '\r') {
       if (*cp == '\n') {
         c = *cp++;
@@ -373,6 +372,14 @@ int main(int argc, char* argv[]) {
     }
 
     file_lines.push_back(line);
+    if (cp >= fileBufferEnd) {
+      char ce = *(fileBufferEnd - 1);
+      if (ce == '\r' || ce == '\n') {
+        line = {0};
+        file_lines.push_back(line);
+      }
+      break;
+    }
   }
 
   // get filename
