@@ -121,6 +121,37 @@ void putnl(unsigned int line, unsigned int col) {
   file_lines.insert(iter, second_line);
 }
 
+void combine_lines(unsigned int line1, unsigned int line2) {
+  assert(line1 < file_lines.size());
+  assert(line2 < file_lines.size());
+  // this is probably not strictly required, but we probably don't
+  // want to combine in the wrong order
+  assert(line1 < line2);
+
+  LineMeta& first_line = file_lines[line1];
+  LineMeta& second_line = file_lines[line2];
+
+  LineMeta new_line = {0};
+  new_line.size = first_line.size + second_line.size;
+  new_line.capacity = new_line.size * 2;
+  new_line.start = new char[new_line.capacity];
+  memcpy(new_line.start,                   first_line.start, first_line.size);
+  memcpy(new_line.start + first_line.size, second_line.start, second_line.size);
+
+  // be careful not to delete someone else's memory
+  if (first_line.capacity > 0) {
+    delete[] first_line.start;
+  }
+  if (second_line.capacity > 0) {
+    delete[] second_line.start;
+  }
+
+  file_lines[line1] = new_line;
+
+  auto iter = file_lines.begin() + line2;
+  file_lines.erase(iter);
+}
+
 void display_file() {
   int last_line = LINES - 2 + first_line;
   int line_num_length = 0;
@@ -500,13 +531,15 @@ int main(int argc, char* argv[]) {
         removec(cy, cx - 1);
         cx--;
       } else if (cy > 0) {
-        printcl(1, "combine lines");
+        cx = file_lines[cy - 1].size;
+        combine_lines(cy - 1, cy);
+        cy--;
       }
     } else if (c == KEY_DC) {
       if (cx < file_lines[cy].size) {
         removec(cy, cx);
       } else if (cy < file_lines.size() - 1) {
-        printcl(1, "combine lines");
+        combine_lines(cy, cy + 1);
       }
     } else if (c == '\r' || c == '\n' || c == KEY_ENTER) {
       putnl(cy, cx);
