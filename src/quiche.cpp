@@ -12,6 +12,9 @@
 #include <signal.h>
 #include <time.h>
 
+#define KEY_CTRL_LEFT  545
+#define KEY_CTRL_RIGHT 560
+
 volatile sig_atomic_t window_resized = false;
 
 struct LineMeta {
@@ -505,6 +508,10 @@ int main(int argc, char* argv[]) {
         cy++;
         cx = 0;
       }
+    } else if (c == KEY_CTRL_LEFT) {
+      printcl(1, "go to previous token");
+    } else if (c == KEY_CTRL_RIGHT) {
+      printcl(1, "go to next token");
     } else if (c == KEY_HOME) {
       cx = 0;
     } else if (c == KEY_END) {
@@ -555,6 +562,8 @@ int main(int argc, char* argv[]) {
       if (getmouse(&event) == OK) {
         printcl(1, "mouse: x=%d y=%d z=%d", event.x, event.y, event.z);
       }
+    } else {
+      printcl(0, "wgetch=%d", c);
     }
     update_screen();
     set_cursor();
