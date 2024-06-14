@@ -273,9 +273,14 @@ void set_cursor() {
 
 void save(const std::string& savePath) {
   FILE* saveFile = fopen(savePath.c_str(), "w");
+  bool first_line = true;
   for (LineMeta& line_meta : file_lines) {
+    if (first_line) {
+      first_line = false;
+    } else {
+      fputc('\n', saveFile);
+    }
     fwrite(line_meta.start, 1, line_meta.size, saveFile);
-    fputc('\n', saveFile);
   }
   fclose(saveFile);
   dirty = false;
