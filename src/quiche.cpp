@@ -274,8 +274,15 @@ void scroll_file(int lines) {
   if (first_line > clamp_first_line) first_line = clamp_first_line;
 }
 
+void get_cursor(int& y, int& x) {
+  y = cy - first_line;
+  x = cx + left_margin;
+}
+
 void set_cursor() {
-  move(cy - first_line, cx + left_margin);
+  int y, x;
+  get_cursor(y, x);
+  move(y, x);
 }
 
 void save(const std::string& savePath) {
@@ -388,6 +395,17 @@ void printcl(int level, const char* fmt, Args&&... args) {
   strprintf(cl_message, fmt, args...);
 }
 
+void scroll_to_cursor() {
+  int y, x;
+  get_cursor(y, x);
+  printcl(1, "scroll_to_cursor y=%d", y);
+  if (y < 0) {
+    scroll_file(y);
+  } else if (y > LINES - 3) {
+    scroll_file((y - (LINES - 3)));
+  }
+}
+
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     fprintf(stderr, "Usage: qe <filename>\n");
@@ -493,11 +511,13 @@ int main(int argc, char* argv[]) {
       cy--;
       if (cy < 0) cy = 0;
       if (cx > file_lines[cy].size) cx = file_lines[cy].size;
+      scroll_to_cursor();
     } else if (c == KEY_DOWN) {
       //scroll_file(1);
       cy++;
       if (cy >= file_lines.size()) cy = file_lines.size() - 1;
       if (cx > file_lines[cy].size) cx = file_lines[cy].size;
+      scroll_to_cursor();
     } else if (c == KEY_LEFT) {
       if (cx > 0) {
         cx--;
@@ -505,6 +525,7 @@ int main(int argc, char* argv[]) {
         cy--;
         cx = file_lines[cy].size;
       }
+      scroll_to_cursor();
     } else if (c == KEY_RIGHT) {
       if (cx < file_lines[cy].size) {
         cx++;
@@ -512,6 +533,7 @@ int main(int argc, char* argv[]) {
         cy++;
         cx = 0;
       }
+      scroll_to_cursor();
     } else if (c == KEY_CTRL_LEFT) {
       printcl(1, "go to previous token");
     } else if (c == KEY_CTRL_RIGHT) {
@@ -522,10 +544,8 @@ int main(int argc, char* argv[]) {
       cx = file_lines[cy].size;
     } else if (c == KEY_NPAGE) {
       scroll_file(4);
-      cy += 4;
     } else if (c == KEY_PPAGE) {
       scroll_file(-4);
-      cy -= 4;
     } else if (c == CTRL('q')) {
       if (!dirty || exitdialog()) {
         endwin();
