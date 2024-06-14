@@ -274,6 +274,11 @@ void scroll_file(int lines) {
   if (first_line > clamp_first_line) first_line = clamp_first_line;
 }
 
+void screen_to_file(int y, int x, int& cy, int& cx) {
+  cy = y + first_line;
+  cx = x - left_margin;
+}
+
 void get_cursor(int& y, int& x) {
   y = cy - first_line;
   x = cx + left_margin;
@@ -477,6 +482,7 @@ int main(int argc, char* argv[]) {
   nonl();     // No new lines
   noecho();   // No echo
   set_escdelay(0);
+  mouseinterval(0);  // Skip test for 'clicked' so that 'pressed' and 'released' are snappy
   keypad(stdscr, TRUE);   // Get special keys too (Fn, arrows, etc.)
   mousemask(ALL_MOUSE_EVENTS, nullptr);
 
@@ -586,7 +592,11 @@ int main(int argc, char* argv[]) {
       if (getmouse(&event) == OK) {
         printcl(1, "mouse: x=%d y=%d z=%d bstate=0x%08x", event.x, event.y, event.z, (uint32_t)event.bstate);
 
-        if (0) {
+        if (BUTTON_PRESS(event.bstate, 1)) {
+          screen_to_file(event.y, event.x, cy, cx);
+          if (cy >= file_lines.size()) cy = file_lines.size() - 1;
+          LineMeta line = file_lines[cy];
+          if (cx > line.size) cx = line.size;
         } else if (MOUSE_SCROLL_UP(event.bstate)) {
           scroll_file(-4);
         } else if (MOUSE_SCROLL_DN(event.bstate)) {
