@@ -51,6 +51,7 @@ bool dirty = false;
 int first_line = 0;
 int left_margin = 0;
 int cx = 0, cy = 0;
+int preferred_cx = 0;
 
 time_t cl_message_time = 0;
 std::string cl_message;
@@ -403,7 +404,6 @@ void printcl(int level, const char* fmt, Args&&... args) {
 void scroll_to_cursor() {
   int y, x;
   get_cursor(y, x);
-  printcl(1, "scroll_to_cursor y=%d", y);
   if (y < 0) {
     scroll_file(y);
   } else if (y > LINES - 3) {
@@ -512,17 +512,26 @@ int main(int argc, char* argv[]) {
     if (c >= ' ' && c <= '~') {  // all printable chars
       putc(c, cy, cx);
       cx++;
+      preferred_cx = cx;
     } else if (c == KEY_UP) {
       //scroll_file(-1);
       cy--;
       if (cy < 0) cy = 0;
-      if (cx > file_lines[cy].size) cx = file_lines[cy].size;
+      if (preferred_cx > file_lines[cy].size) {
+        cx = file_lines[cy].size;
+      } else {
+        cx = preferred_cx;
+      }
       scroll_to_cursor();
     } else if (c == KEY_DOWN) {
       //scroll_file(1);
       cy++;
       if (cy >= file_lines.size()) cy = file_lines.size() - 1;
-      if (cx > file_lines[cy].size) cx = file_lines[cy].size;
+      if (preferred_cx > file_lines[cy].size) {
+        cx = file_lines[cy].size;
+      } else {
+        cx = preferred_cx;
+      }
       scroll_to_cursor();
     } else if (c == KEY_LEFT) {
       if (cx > 0) {
@@ -531,6 +540,7 @@ int main(int argc, char* argv[]) {
         cy--;
         cx = file_lines[cy].size;
       }
+      preferred_cx = cx;
       scroll_to_cursor();
     } else if (c == KEY_RIGHT) {
       if (cx < file_lines[cy].size) {
@@ -539,15 +549,20 @@ int main(int argc, char* argv[]) {
         cy++;
         cx = 0;
       }
+      preferred_cx = cx;
       scroll_to_cursor();
     } else if (c == KEY_CTRL_LEFT) {
+      preferred_cx = cx;
       printcl(1, "go to previous token");
     } else if (c == KEY_CTRL_RIGHT) {
+      preferred_cx = cx;
       printcl(1, "go to next token");
     } else if (c == KEY_HOME) {
       cx = 0;
+      preferred_cx = cx;
     } else if (c == KEY_END) {
       cx = file_lines[cy].size;
+      preferred_cx = cx;
     } else if (c == KEY_NPAGE) {
       scroll_file(4);
     } else if (c == KEY_PPAGE) {
@@ -577,16 +592,19 @@ int main(int argc, char* argv[]) {
         combine_lines(cy - 1, cy);
         cy--;
       }
+      preferred_cx = cx;
     } else if (c == KEY_DC) {
       if (cx < file_lines[cy].size) {
         removec(cy, cx);
       } else if (cy < file_lines.size() - 1) {
         combine_lines(cy, cy + 1);
       }
+      preferred_cx = cx;
     } else if (c == '\r' || c == '\n' || c == KEY_ENTER) {
       putnl(cy, cx);
       cy++;
       cx = 0;
+      preferred_cx = cx;
     } else if (c == KEY_MOUSE) {
       MEVENT event;
       if (getmouse(&event) == OK) {
@@ -597,6 +615,7 @@ int main(int argc, char* argv[]) {
           if (cy >= file_lines.size()) cy = file_lines.size() - 1;
           LineMeta line = file_lines[cy];
           if (cx > line.size) cx = line.size;
+          preferred_cx = cx;
         } else if (MOUSE_SCROLL_UP(event.bstate)) {
           scroll_file(-4);
         } else if (MOUSE_SCROLL_DN(event.bstate)) {
