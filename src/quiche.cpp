@@ -14,6 +14,8 @@
 
 #define KEY_CTRL_LEFT  545
 #define KEY_CTRL_RIGHT 560
+#define MOUSE_SCROLL_UP(e)    ((e) & 0x00010000)
+#define MOUSE_SCROLL_DN(e)    ((e) & 0x00200000)
 
 volatile sig_atomic_t window_resized = false;
 
@@ -267,7 +269,9 @@ void regenerate_screen() {
 void scroll_file(int lines) {
   first_line += lines;
   if (first_line < 0) first_line = 0;
-  // also clamp bottom too
+  const int MAX_BLANK_LINES = 0;
+  int clamp_first_line = file_lines.size() - LINES + 2 + MAX_BLANK_LINES;
+  if (first_line > clamp_first_line) first_line = clamp_first_line;
 }
 
 void set_cursor() {
@@ -560,7 +564,14 @@ int main(int argc, char* argv[]) {
     } else if (c == KEY_MOUSE) {
       MEVENT event;
       if (getmouse(&event) == OK) {
-        printcl(1, "mouse: x=%d y=%d z=%d", event.x, event.y, event.z);
+        printcl(1, "mouse: x=%d y=%d z=%d bstate=0x%08x", event.x, event.y, event.z, (uint32_t)event.bstate);
+
+        if (0) {
+        } else if (MOUSE_SCROLL_UP(event.bstate)) {
+          scroll_file(-4);
+        } else if (MOUSE_SCROLL_DN(event.bstate)) {
+          scroll_file(4);
+        }
       }
     } else {
       printcl(0, "wgetch=%d", c);
