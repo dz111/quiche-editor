@@ -377,7 +377,7 @@ void strprintf(std::string& s, const char* fmt, Args&&... args) {
 template<typename... Args>
 void printcl(int level, const char* fmt, Args&&... args) {
   cl_message_time = time(nullptr);
-  cl_message_level = 0;
+  cl_message_level = level;
   strprintf(cl_message, fmt, args...);
 }
 
