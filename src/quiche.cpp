@@ -518,6 +518,7 @@ int main(int argc, char* argv[]) {
       putc(c, cy, cx);
       cx++;
       preferred_cx = cx;
+      scroll_to_cursor();
     } else if (c == KEY_UP) {
       //scroll_file(-1);
       cy--;
@@ -588,7 +589,7 @@ int main(int argc, char* argv[]) {
       endwin();
       raise(SIGSTOP);
       regenerate_screen();
-        } else if (c == KEY_BACKSPACE) {
+    } else if (c == KEY_BACKSPACE) {
       if (cx > 0) {
         removec(cy, cx - 1);
         cx--;
@@ -598,6 +599,7 @@ int main(int argc, char* argv[]) {
         cy--;
       }
       preferred_cx = cx;
+      scroll_to_cursor();
     } else if (c == KEY_DC) {
       if (cx < file_lines[cy].size) {
         removec(cy, cx);
@@ -605,22 +607,26 @@ int main(int argc, char* argv[]) {
         combine_lines(cy, cy + 1);
       }
       preferred_cx = cx;
+      scroll_to_cursor();
     } else if (c == '\r' || c == '\n' || c == KEY_ENTER) {
       putnl(cy, cx);
       cy++;
       cx = 0;
       preferred_cx = cx;
+      scroll_to_cursor();
     } else if (c == KEY_MOUSE) {
       MEVENT event;
       if (getmouse(&event) == OK) {
-        printcl(1, "mouse: x=%d y=%d z=%d bstate=0x%08x", event.x, event.y, event.z, (uint32_t)event.bstate);
+        //printcl(1, "mouse: x=%d y=%d z=%d bstate=0x%08x", event.x, event.y, event.z, (uint32_t)event.bstate);
 
         if (BUTTON_PRESS(event.bstate, 1)) {
-          screen_to_file(event.y, event.x, cy, cx);
-          if (cy >= file_lines.size()) cy = file_lines.size() - 1;
-          LineMeta line = file_lines[cy];
-          if (cx > line.size) cx = line.size;
-          preferred_cx = cx;
+          if (event.y < LINES - 2) {
+            screen_to_file(event.y, event.x, cy, cx);
+            if (cy >= file_lines.size()) cy = file_lines.size() - 1;
+            LineMeta line = file_lines[cy];
+            if (cx > line.size) cx = line.size;
+            preferred_cx = cx;
+          }
         } else if (MOUSE_SCROLL_UP(event.bstate)) {
           scroll_file(-4);
         } else if (MOUSE_SCROLL_DN(event.bstate)) {
