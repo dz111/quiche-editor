@@ -76,7 +76,7 @@ void handle_sigcont(int signal) {
   window_resized = true;
 }
 
-void putc(char c, unsigned int line, unsigned int col) {
+void do_putc(char c, unsigned int line, unsigned int col) {
   assert(line < file_lines.size());
   LineMeta& line_meta = file_lines[line];
   assert(col <= line_meta.size);
@@ -93,10 +93,23 @@ void putc(char c, unsigned int line, unsigned int col) {
   dirty = true;
 }
 
+void pad(unsigned int line, unsigned int col) {
+  assert(line < file_lines.size());
+  LineMeta& line_meta = file_lines[line];
+  while (col > line_meta.size) {
+    do_putc(' ', line, line_meta.size);
+  }
+}
+
+void putc(char c, unsigned int line, unsigned int col) {
+  pad(line, col);
+  do_putc(c, line, col);
+}
+
 void removec(unsigned int line, unsigned int col) {
   assert(line < file_lines.size());
   LineMeta& line_meta = file_lines[line];
-  assert(col < line_meta.size);
+  pad(line, col);
   if (line_meta.size >= line_meta.capacity) {
     line_meta.alloc_edit_buffer();
   }
@@ -112,7 +125,7 @@ void removec(unsigned int line, unsigned int col) {
 void putnl(unsigned int line, unsigned int col) {
   assert(line < file_lines.size());
   LineMeta& first_line = file_lines[line];
-  assert(col <= first_line.size);
+  pad(line, col);
 
   LineMeta second_line = {0};
   second_line.start = first_line.start + col;
@@ -419,6 +432,21 @@ void scroll_to_cursor() {
   }
 }
 
+uint64_t find_line_home(int line) {
+  // Return either the start of line (after whitespace) or
+  // that of the last non-blank line
+  assert(line < file_lines.size());
+  LineMeta meta = file_lines[line];
+  for (uint64_t i = 0; i < meta.size; i++) {
+    uint8_t c = meta.start[i];
+    if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+      return i;
+    }
+  }
+  if (line == 0) return 0;
+  return find_line_home(line - 1);
+}
+
 int main(int argc, char* argv[]) {
   if (argc < 2) {
   //  fprintf(stderr, "Usage: qe <filename>\n");
@@ -572,7 +600,12 @@ int main(int argc, char* argv[]) {
       preferred_cx = cx;
       printcl(1, "go to next token");
     } else if (c == KEY_HOME) {
-      cx = 0;
+      int home = find_line_home(cy);
+      if (cx == home) {
+        cx = 0;
+      } else {
+        cx = home;
+      }
       preferred_cx = cx;
     } else if (c == KEY_END) {
       cx = file_lines[cy].size;
@@ -619,7 +652,7 @@ int main(int argc, char* argv[]) {
     } else if (c == '\r' || c == '\n' || c == KEY_ENTER) {
       putnl(cy, cx);
       cy++;
-      cx = 0;
+      cx = find_line_home(cy);
       preferred_cx = cx;
       scroll_to_cursor();
     } else if (c == KEY_MOUSE) {
