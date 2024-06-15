@@ -364,10 +364,30 @@ void dialog_render(const std::string& prompt, const std::string& entry, const in
   move(LINES - 1, prompt.size() + cursor);
 }
 
-void dialog_keyinput(std::string& entry, int c, int& cursor) {
-  if (c >= ' ' && c <= '~') {
-    entry.insert(cursor, 1, (char)c);
-    cursor++;
+#define INPUT_DIGITS    (1)
+#define INPUT_LOWER     (2)
+#define INPUT_UPPER     (4)
+#define INPUT_SYMBOLS   (8)
+#define INPUT_SPACE     (16)
+#define INPUT_ALPHA     (INPUT_LOWER | INPUT_UPPER)
+#define INPUT_ALPHANUM  (INPUT_ALPHA | INPUT_DIGITS)
+#define INPUT_ALL       (INPUT_ALPHANUM | INPUT_SYMBOLS | INPUT_SPACE)
+
+#define DO_DIALOG_PUTC()  entry.insert(cursor, 1, (char)c); cursor++
+
+void dialog_keyinput(std::string& entry, int c, int& cursor, int input_mask=INPUT_ALL) {
+  if ((input_mask & INPUT_DIGITS) && c >= '0' && c <='9') {
+    DO_DIALOG_PUTC();
+  } else if ((input_mask & INPUT_LOWER) && c >= 'a' && c <= 'z') {
+    DO_DIALOG_PUTC();
+  } else if ((input_mask & INPUT_UPPER) && c >= 'A' && c <= 'Z') {
+    DO_DIALOG_PUTC();
+  } else if ((input_mask & INPUT_SYMBOLS) &&
+    ((c >= '!' && c <= '/') || (c >= ':' && c <= '@') ||
+     (c >= '[' && c <= '`') || (c >= '{' && c <= '~'))) {
+    DO_DIALOG_PUTC();
+  } else if ((input_mask & INPUT_SPACE) && c == ' ') {
+    DO_DIALOG_PUTC();
   } else if (c == KEY_LEFT) {
     cursor--;
     if (cursor < 0) cursor = 0;
@@ -430,6 +450,31 @@ bool exitdialog() {
         save(filePath);
         return true;
       }
+    }
+  }
+}
+
+bool gotodialog(int* line) {
+  std::string s_line;
+  int cx = 0;
+  while (1) {
+    dialog_render("Goto: ", s_line, cx);
+    int c = wgetch(stdscr);
+    
+    if (c == 27) {
+      dialog_clear();
+      return false;
+    } else if (c == '\r' || c == '\n' || c == KEY_ENTER) {
+      if (s_line.size()) {
+        *line = std::stoi(s_line) - 1;
+        dialog_clear();
+        return true;
+      } else {
+        dialog_clear();
+        return false;
+      }
+    } else {
+      dialog_keyinput(s_line, c, cx, INPUT_DIGITS);
     }
   }
 }
@@ -669,6 +714,15 @@ int main(int argc, char* argv[]) {
     } else if (c == CTRL('D')) {
       duplicate_line(cy);
       cy++;
+      scroll_to_cursor();
+    } else if (c == CTRL('G')) {
+      if (gotodialog(&cy)) {
+        if (cy < 0) cy = 0;
+        if (cy >= file_lines.size()) cy = file_lines.size() - 1;
+        if (cx > file_lines[cy].size) {
+          cx = file_lines[cy].size;
+        }
+      }
       scroll_to_cursor();
     } else if (c == KEY_RESIZE) {
       printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
