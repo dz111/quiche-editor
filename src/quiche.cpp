@@ -5,7 +5,7 @@
 #include <vector>
 
 #include <assert.h>
-#include <ncurses.h>
+#include <ncursesw/curses.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -227,7 +227,11 @@ void render_status() {
   if (dirty) {
     addch('*');
   }
-  printw(" (%d:%d)", cy + 1, cx + 1);
+  printw(" (%d:%d) ", cy + 1, cx + 1);
+  // hirogana 'aiueo'
+  printw("\xe3\x81\x82\xe3\x81\x84\xe3\x81\x86\xe3\x81\x88\xe3\x81\x8a");
+  // smile
+  printw("\xf0\x9f\x98\x80");
 
   int x, y;
   getyx(stdscr, y, x);
@@ -477,6 +481,7 @@ int main(int argc, char* argv[]) {
   //  fileName = fstart;
   //}
 
+  setlocale(LC_ALL, "");
   initscr();  // Start curses
   raw();      // Disable line buffering so we get inputs asap
   nonl();     // No new lines

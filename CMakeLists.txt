@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(SOURCE_FILES src/quiche.cpp)
 add_executable(qe ${SOURCE_FILES})
 
+set(CURSES_NEED_WIDE True)
 find_package(Curses REQUIRED)
 include_directories(${CURSES_INCLUDE_DIR})
 target_link_libraries(qe ${CURSES_LIBRARIES})
