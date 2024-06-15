@@ -41,9 +41,19 @@ public:
     }
     beep(); // BEL
   }
+  LineMeta duplicate() {
+    LineMeta retval;
+    retval.size = size;
+    retval.capacity = retval.size * 2;
+    retval.start = new uint8_t[retval.capacity];
+    memcpy(retval.start, start, size);
+    return retval;
+  }
 };
 
 std::vector<LineMeta> file_lines;
+std::vector<LineMeta> cutbuffer;
+bool cut_sequence = false;
 
 FILE* file = nullptr;
 std::string filePath;
@@ -175,10 +185,28 @@ void combine_lines(unsigned int line1, unsigned int line2) {
   dirty = true;
 }
 
-void delete_line(unsigned int line) {
+void cut_line(unsigned int line) {
   assert(line < file_lines.size());
+  cutbuffer.push_back(file_lines[line]);
   auto iter = file_lines.begin() + line;
   file_lines.erase(iter);
+  dirty = true;
+}
+
+void clear_cutbuffer() {
+  for (LineMeta& line_meta : cutbuffer) {
+    // be careful not to delete someone else's memory
+    if (line_meta.capacity > 0) {
+      delete[] line_meta.start;
+    }
+  }
+  cutbuffer.clear();
+}
+
+void insert_cutbuffer(unsigned int line) {
+  assert(line < file_lines.size());
+  auto iter = file_lines.begin() + line;
+  file_lines.insert(iter, cutbuffer.begin(), cutbuffer.end());
   dirty = true;
 }
 
@@ -626,6 +654,7 @@ int main(int argc, char* argv[]) {
       cx++;
       preferred_cx = cx;
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_UP) {
       //scroll_file(-1);
       cy--;
@@ -636,6 +665,7 @@ int main(int argc, char* argv[]) {
         cx = preferred_cx;
       }
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_DOWN) {
       //scroll_file(1);
       cy++;
@@ -646,6 +676,7 @@ int main(int argc, char* argv[]) {
         cx = preferred_cx;
       }
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_LEFT) {
       if (cx > 0) {
         cx--;
@@ -655,6 +686,7 @@ int main(int argc, char* argv[]) {
       }
       preferred_cx = cx;
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_RIGHT) {
       if (cx < file_lines[cy].size) {
         cx++;
@@ -664,11 +696,14 @@ int main(int argc, char* argv[]) {
       }
       preferred_cx = cx;
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_CTRL_LEFT) {
       preferred_cx = cx;
+      cut_sequence = false;
       printcl(1, "go to previous token");
     } else if (c == KEY_CTRL_RIGHT) {
       preferred_cx = cx;
+      cut_sequence = false;
       printcl(1, "go to next token");
     } else if (c == KEY_HOME) {
       int home = find_line_home(cy);
@@ -678,19 +713,24 @@ int main(int argc, char* argv[]) {
         cx = home;
       }
       preferred_cx = cx;
+      cut_sequence = false;
     } else if (c == KEY_END) {
       cx = file_lines[cy].size;
       preferred_cx = cx;
+      cut_sequence = false;
     } else if (c == KEY_CTRL_HOME) {
       cx = 0;
       cy = 0;
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_CTRL_END) {
       cy = file_lines.size() - 1;
       cx = file_lines[cy].size;
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_NPAGE) {
       scroll_file(4);
+      cut_sequence = false;
     } else if (c == KEY_PPAGE) {
       scroll_file(-4);
     } else if (c == CTRL('q')) {
@@ -703,7 +743,11 @@ int main(int argc, char* argv[]) {
         save(filePath);
       }
     } else if (c == CTRL('K')) {
-      delete_line(cy);
+      if (!cut_sequence) {
+        clear_cutbuffer();
+      }
+      cut_sequence = true;
+      cut_line(cy);
       if (cy >= file_lines.size()) {
         cy = file_lines.size() - 1;
       }
@@ -711,10 +755,14 @@ int main(int argc, char* argv[]) {
         cx = file_lines[cy].size;
       }
       scroll_to_cursor();
-    } else if (c == CTRL('D')) {
-      duplicate_line(cy);
-      cy++;
+    } else if (c == CTRL('U')) {
+      insert_cutbuffer(cy);
+      cy += cutbuffer.size();
+      if (cx > file_lines[cy].size) {
+        cx = file_lines[cy].size;
+      }
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == CTRL('G')) {
       if (gotodialog(&cy)) {
         if (cy < 0) cy = 0;
@@ -724,6 +772,7 @@ int main(int argc, char* argv[]) {
         }
       }
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_RESIZE) {
       printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
       regenerate_screen();
@@ -742,6 +791,7 @@ int main(int argc, char* argv[]) {
       }
       preferred_cx = cx;
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_DC) {
       if (cx < file_lines[cy].size) {
         removec(cy, cx);
@@ -750,14 +800,17 @@ int main(int argc, char* argv[]) {
       }
       preferred_cx = cx;
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == '\r' || c == '\n' || c == KEY_ENTER) {
       putnl(cy, cx);
       cy++;
       cx = find_line_home(cy);
       preferred_cx = cx;
       scroll_to_cursor();
+      cut_sequence = false;
     } else if (c == KEY_MOUSE) {
       MEVENT event;
+      cut_sequence = false;
       if (getmouse(&event) == OK) {
         //printcl(1, "mouse: x=%d y=%d z=%d bstate=0x%08x", event.x, event.y, event.z, (uint32_t)event.bstate);
 
