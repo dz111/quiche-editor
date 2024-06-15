@@ -223,7 +223,11 @@ void display_file() {
 void render_status() {
   move(LINES - 2, 0);
   attron(A_REVERSE);
-  printw(filePath.c_str());
+  if (filePath.size()) {
+    printw(filePath.c_str());
+  } else {
+    printw("(new file)");
+  }
   if (dirty) {
     addch('*');
   }
@@ -417,9 +421,11 @@ void scroll_to_cursor() {
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
-    fprintf(stderr, "Usage: qe <filename>\n");
-    return -1;
-  }
+  //  fprintf(stderr, "Usage: qe <filename>\n");
+  //  return -1;
+    LineMeta line = {0};
+    file_lines.push_back(line);
+  } else {
 
   filePath = argv[1];
   const char* cFilePath = argv[1];
@@ -480,6 +486,8 @@ int main(int argc, char* argv[]) {
   //  if (fstart > start) fstart++;
   //  fileName = fstart;
   //}
+
+  }
 
   setlocale(LC_ALL, "");
   initscr();  // Start curses
