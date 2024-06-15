@@ -21,7 +21,7 @@ volatile sig_atomic_t window_resized = false;
 
 struct LineMeta {
 public:
-  char* start;
+  uint8_t* start;
   uint64_t size;
   uint64_t capacity;  // 0 if using original file buffer
 public:
@@ -30,9 +30,9 @@ public:
   }
   void alloc_edit_buffer() {
     bool delete_old_buffer = (capacity > 0);  // need to be careful not to delete some one else's memory
-    char* line_data = start;
+    uint8_t* line_data = start;
     capacity = size * 2;
-    start = new char[capacity];
+    start = new uint8_t[capacity];
     memcpy(start, line_data, size);
     if (delete_old_buffer) {
       delete[] line_data;
@@ -45,7 +45,7 @@ std::vector<LineMeta> file_lines;
 
 FILE* file = nullptr;
 std::string filePath;
-char* fileBuffer = nullptr;
+uint8_t* fileBuffer = nullptr;
 bool dirty = false;
 
 int first_line = 0;
@@ -83,7 +83,7 @@ void putc(char c, unsigned int line, unsigned int col) {
   if (line_meta.size >= line_meta.capacity) {
     line_meta.alloc_edit_buffer();
   }
-  char* cp = line_meta.start + col;
+  uint8_t* cp = line_meta.start + col;
   while (cp < line_meta.start + line_meta.size + 1) {
     char last_c = *cp;
     *cp++ = c;
@@ -100,7 +100,7 @@ void removec(unsigned int line, unsigned int col) {
   if (line_meta.size >= line_meta.capacity) {
     line_meta.alloc_edit_buffer();
   }
-  char* cp = line_meta.start + col;
+  uint8_t* cp = line_meta.start + col;
   while (cp < line_meta.start + line_meta.size) {
     *cp = *(cp + 1);
     cp++;
@@ -140,7 +140,7 @@ void combine_lines(unsigned int line1, unsigned int line2) {
   LineMeta new_line = {0};
   new_line.size = first_line.size + second_line.size;
   new_line.capacity = new_line.size * 2;
-  new_line.start = new char[new_line.capacity];
+  new_line.start = new uint8_t[new_line.capacity];
   memcpy(new_line.start,                   first_line.start, first_line.size);
   memcpy(new_line.start + first_line.size, second_line.start, second_line.size);
 
@@ -444,12 +444,12 @@ int main(int argc, char* argv[]) {
   }
   fseek(file, 0, SEEK_SET);  // beginning
 
-  fileBuffer = new char[fileSize];
+  fileBuffer = new uint8_t[fileSize];
   fread(fileBuffer, 1, fileSize, file);
 
   // initialise line data
-  char* cp = fileBuffer;
-  char* fileBufferEnd = fileBuffer + fileSize;
+  uint8_t* cp = fileBuffer;
+  uint8_t* fileBufferEnd = fileBuffer + fileSize;
   while (1) {
     LineMeta line = {0};
     line.start = cp;
