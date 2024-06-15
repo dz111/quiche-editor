@@ -182,6 +182,21 @@ void delete_line(unsigned int line) {
   dirty = true;
 }
 
+void duplicate_line(unsigned int line) {
+  assert(line < file_lines.size());
+  LineMeta& first_line = file_lines[line];
+  
+  LineMeta second_line = {0};
+  second_line.size = first_line.size;
+  second_line.capacity = second_line.size * 2;
+  second_line.start = new uint8_t[second_line.capacity];
+  memcpy(second_line.start, first_line.start, first_line.size);
+  
+  auto iter = file_lines.begin() + line + 1;
+  file_lines.insert(iter, second_line);
+  dirty = true;
+}
+
 void display_file() {
   int last_line = LINES - 2 + first_line;
   int line_num_length = 0;
@@ -644,6 +659,17 @@ int main(int argc, char* argv[]) {
       }
     } else if (c == CTRL('K')) {
       delete_line(cy);
+      if (cy >= file_lines.size()) {
+        cy = file_lines.size() - 1;
+      }
+      if (cx > file_lines[cy].size) {
+        cx = file_lines[cy].size;
+      }
+      scroll_to_cursor();
+    } else if (c == CTRL('D')) {
+      duplicate_line(cy);
+      cy++;
+      scroll_to_cursor();
     } else if (c == KEY_RESIZE) {
       printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
       regenerate_screen();
