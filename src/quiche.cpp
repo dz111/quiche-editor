@@ -14,6 +14,8 @@
 
 #define KEY_CTRL_LEFT  545
 #define KEY_CTRL_RIGHT 560
+#define KEY_CTRL_HOME  535
+#define KEY_CTRL_END   530
 #define MOUSE_SCROLL_UP(e)    ((e) & 0x00010000)
 #define MOUSE_SCROLL_DN(e)    ((e) & 0x00200000)
 
@@ -619,6 +621,14 @@ int main(int argc, char* argv[]) {
     } else if (c == KEY_END) {
       cx = file_lines[cy].size;
       preferred_cx = cx;
+    } else if (c == KEY_CTRL_HOME) {
+      cx = 0;
+      cy = 0;
+      scroll_to_cursor();
+    } else if (c == KEY_CTRL_END) {
+      cy = file_lines.size() - 1;
+      cx = file_lines[cy].size;
+      scroll_to_cursor();
     } else if (c == KEY_NPAGE) {
       scroll_file(4);
     } else if (c == KEY_PPAGE) {
