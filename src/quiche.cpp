@@ -138,6 +138,7 @@ void putnl(unsigned int line, unsigned int col) {
 
   auto iter = file_lines.begin() + line + 1;
   file_lines.insert(iter, second_line);
+  dirty = true;
 }
 
 void combine_lines(unsigned int line1, unsigned int line2) {
@@ -169,6 +170,14 @@ void combine_lines(unsigned int line1, unsigned int line2) {
 
   auto iter = file_lines.begin() + line2;
   file_lines.erase(iter);
+  dirty = true;
+}
+
+void delete_line(unsigned int line) {
+  assert(line < file_lines.size());
+  auto iter = file_lines.begin() + line;
+  file_lines.erase(iter);
+  dirty = true;
 }
 
 void display_file() {
@@ -623,6 +632,8 @@ int main(int argc, char* argv[]) {
       if (savedialog(filePath)) {
         save(filePath);
       }
+    } else if (c == CTRL('K')) {
+      delete_line(cy);
     } else if (c == KEY_RESIZE) {
       printcl(0, "[ Cols: %d Rows : %d ]", COLS, LINES);
       regenerate_screen();
