@@ -21,6 +21,14 @@
 
 volatile sig_atomic_t window_resized = false;
 
+uint64_t file_get_size(FILE* fh) {
+  auto curr_position = ftell(fh);
+  fseek(fh, 0, SEEK_END);
+  uint64_t file_size = ftell(fh);
+  fseek(fh, curr_position, SEEK_SET);
+  return file_size;
+}
+
 struct LineMeta {
 public:
   uint8_t* start;
@@ -556,20 +564,13 @@ int main(int argc, char* argv[]) {
 
   filePath = argv[1];
   const char* cFilePath = argv[1];
-  file = fopen(cFilePath, "r+");
+  file = fopen(cFilePath, "rb");
   if (!file) {
     fprintf(stderr, "Could not open file '%s' for editing.\n", cFilePath);
     return -1;
   }
 
-  fseek(file, 0, SEEK_END);
-  unsigned int fileSize;
-  int result = fgetpos(file, (fpos_t*)&fileSize);
-  if (result != 0) {
-    fprintf(stderr, "Error calling fgetpos().\n");
-    return -1;
-  }
-  fseek(file, 0, SEEK_SET);  // beginning
+  uint64_t fileSize = file_get_size(file);
 
   fileBuffer = new uint8_t[fileSize];
   fread(fileBuffer, 1, fileSize, file);
