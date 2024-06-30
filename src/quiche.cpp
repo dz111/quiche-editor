@@ -116,9 +116,10 @@ void do_putc(char c, unsigned int line, unsigned int col) {
 void pad(unsigned int line, unsigned int col) {
   assert(line < file_lines.size());
   LineMeta& line_meta = file_lines[line];
-  while (col > line_meta.size) {
+  while (col >= line_meta.size) {
     do_putc(' ', line, line_meta.size);
   }
+  assert(line_meta.size >= col);
 }
 
 void putc(char c, unsigned int line, unsigned int col) {
@@ -130,6 +131,7 @@ void removec(unsigned int line, unsigned int col) {
   assert(line < file_lines.size());
   LineMeta& line_meta = file_lines[line];
   pad(line, col);
+  assert(col < line_meta.size);
   if (line_meta.size >= line_meta.capacity) {
     line_meta.alloc_edit_buffer();
   }
